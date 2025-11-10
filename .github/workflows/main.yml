@@ -1,27 +1,17 @@
-name: Java CI/CD with Expressions Demo
+name: Java CI with Expressions Demo
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Deployment environment'
-        required: true
-        default: 'staging'
-        type: choice
-        options:
-        - staging
-        - production
 
 env:
   JAVA_VERSION: '11'
-  MAVEN_OPTS: '--no-transfer-progress'
 
 jobs:
-  test:
+  build-and-test:
     runs-on: ubuntu-latest
     
     steps:
@@ -35,71 +25,81 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
 
-    - name: Build and test with Maven
-      run: mvn ${{ env.MAVEN_OPTS }} clean test
-      env:
-        GITHUB_ACTIONS: true
+    - name: Validate pom.xml
+      run: mvn validate
 
-    - name: Show test context
+    - name: Compile code
+      run: mvn compile
+
+    - name: Run tests
+      run: mvn test
+
+    - name: Show GitHub Context
       run: |
-        echo "Test job completed successfully!"
+        echo "=== GitHub Context ==="
         echo "Repository: ${{ github.repository }}"
-        echo "Branch: ${{ github.ref_name }}"
         echo "Event: ${{ github.event_name }}"
-        echo "Workflow: ${{ github.workflow }}"
-
-  build:
-    runs-on: ubuntu-latest
-    needs: test
-    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up Java
-      uses: actions/setup-java@v4
-      with:
-        java-version: ${{ env.JAVA_VERSION }}
-        distribution: 'temurin'
-
-    - name: Build with Maven
-      run: mvn ${{ env.MAVEN_OPTS }} clean compile
-
-    - name: Show build context
-      run: |
-        echo "Build environment: ${{ inputs.environment || 'auto' }}"
-        echo "Actor: ${{ github.actor }}"
+        echo "Ref: ${{ github.ref }}"
         echo "SHA: ${{ github.sha }}"
-        echo "Is main branch: ${{ github.ref == 'refs/heads/main' }}"
+        echo "Actor: ${{ github.actor }}"
+        echo "Workflow: ${{ github.workflow }}"
 
-  deploy:
+    - name: Show Runner Context
+      run: |
+        echo "=== Runner Context ==="
+        echo "OS: ${{ runner.os }}"
+        echo "Workspace: ${{ runner.workspace }}"
+        echo "Temp: ${{ runner.temp }}"
+
+    - name: Show Job Context
+      run: |
+        echo "=== Job Context ==="
+        echo "Job Status: ${{ job.status }}"
+        echo "Runner Name: ${{ runner.name }}"
+
+    - name: Show Environment Context
+      run: |
+        echo "=== Environment Context ==="
+        echo "Java Version: ${{ env.JAVA_VERSION }}"
+        echo "Runner OS: ${{ runner.os }}"
+
+    - name: Conditional Expressions Demo
+      run: |
+        echo "=== Conditional Expressions ==="
+        echo "Is push event: ${{ github.event_name == 'push' }}"
+        echo "Is main branch: ${{ github.ref == 'refs/heads/main' }}"
+        echo "Is workflow_dispatch: ${{ github.event_name == 'workflow_dispatch' }}"
+
+  expressions-demo:
     runs-on: ubuntu-latest
-    needs: build
-    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.environment == 'staging' || inputs.environment == 'production') }}
+    needs: build-and-test
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Show deployment context
+    - name: Advanced Expressions
       run: |
-        echo "=== Deployment Context ==="
-        echo "Target environment: ${{ inputs.environment }}"
-        echo "Triggered by: ${{ github.actor }}"
-        echo "Repository: ${{ github.repository }}"
-        echo "Workflow: ${{ github.workflow }}"
-        echo "Event: ${{ github.event_name }}"
-        echo "Runner OS: ${{ runner.os }}"
-        echo "Workspace: ${{ github.workspace }}"
-        
-        echo "=== Conditional Expressions ==="
-        echo "Is production: ${{ inputs.environment == 'production' }}"
-        echo "Is staging: ${{ inputs.environment == 'staging' }}"
-        echo "Has needs context: ${{ needs.build.result == 'success' }}"
+        echo "=== Advanced Expression Examples ==="
+        echo "Branch name: ${{ github.ref_name }}"
+        echo "Short SHA: ${{ github.sha }}"
+        echo "Repository owner: ${{ github.repository_owner }}"
+        echo "Event payload path: ${{ github.event_path }}"
+        echo "Action ID: ${{ github.action }}"
+        echo "Run ID: ${{ github.run_id }}"
+        echo "Run number: ${{ github.run_number }}"
 
-    - name: Simulate deployment
+    - name: String Functions
       run: |
-        echo "Simulating deployment to ${{ inputs.environment }}"
-        echo "Application: ${{ github.repository }}"
-        echo "Version: 1.0.0-${{ github.sha }}"
+        echo "=== String Function Examples ==="
+        # Note: GitHub expressions in run commands don't support all functions directly
+        # These would typically be used in if conditions or other expressions
+        echo "Using contains in condition below"
+        
+    - name: Contains example
+      if: ${{ contains(github.ref, 'main') }}
+      run: echo "This runs only on main branch"
+
+    - name: Always run step
+      if: ${{ always() }}
+      run: echo "This step always runs to show completion status"
