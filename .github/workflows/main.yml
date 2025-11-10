@@ -1,73 +1,105 @@
-name: Explore Expressions and Contexts
+name: Java CI/CD with Expressions Demo
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # Allows manual triggering
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
 
 env:
-  NODE_VERSION: '18'
-  CUSTOM_VAR: 'hello-world'
+  JAVA_VERSION: '11'
+  MAVEN_OPTS: '--no-transfer-progress'
 
 jobs:
-  explore-expressions:
+  test:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Show basic expressions
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: 'maven'
+
+    - name: Build and test with Maven
+      run: mvn ${{ env.MAVEN_OPTS }} clean test
+      env:
+        GITHUB_ACTIONS: true
+
+    - name: Show test context
       run: |
+        echo "Test job completed successfully!"
         echo "Repository: ${{ github.repository }}"
-        echo "Event name: ${{ github.event_name }}"
-        echo "Ref: ${{ github.ref }}"
-        echo "SHA: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Event: ${{ github.event_name }}"
         echo "Workflow: ${{ github.workflow }}"
-        echo "Runner OS: ${{ runner.os }}"
 
-    - name: Show environment context
-      run: |
-        echo "Node version from env: ${{ env.NODE_VERSION }}"
-        echo "Custom variable: ${{ env.CUSTOM_VAR }}"
-
-    - name: Conditional execution example
-      if: ${{ github.event_name == 'push' }}
-      run: echo "This only runs on push events"
-
-    - name: Show job context
-      run: |
-        echo "Job status: ${{ job.status }}"
-        echo "Runner name: ${{ runner.name }}"
-
-    - name: Matrix example (if using strategy)
-      run: echo "This could be part of a matrix strategy"
-
-  context-details:
+  build:
     runs-on: ubuntu-latest
-    needs: explore-expressions
+    needs: test
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
     
     steps:
-    - name: Dump all contexts
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+
+    - name: Build with Maven
+      run: mvn ${{ env.MAVEN_OPTS }} clean compile
+
+    - name: Show build context
       run: |
-        echo "=== GitHub Context ==="
+        echo "Build environment: ${{ inputs.environment || 'auto' }}"
         echo "Actor: ${{ github.actor }}"
-        echo "Event path: ${{ github.event_path }}"
-        echo "Workspace: ${{ github.workspace }}"
-        echo "Action: ${{ github.action }}"
-        
-        echo "=== Runner Context ==="
-        echo "OS: ${{ runner.os }}"
-        echo "Temp: ${{ runner.temp }}"
-        echo "Tool cache: ${{ runner.tool_cache }}"
-
-    - name: Show secrets context (masked)
-      run: |
-        echo "Secret names are masked: ${{ secrets.GITHUB_TOKEN }}"
-
-    - name: Complex expression example
-      run: |
-        echo "Branch name: ${{ github.ref == 'refs/heads/main' && 'main' || github.ref_name }}"
+        echo "SHA: ${{ github.sha }}"
         echo "Is main branch: ${{ github.ref == 'refs/heads/main' }}"
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event_name == 'workflow_dispatch' && (inputs.environment == 'staging' || inputs.environment == 'production') }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Show deployment context
+      run: |
+        echo "=== Deployment Context ==="
+        echo "Target environment: ${{ inputs.environment }}"
+        echo "Triggered by: ${{ github.actor }}"
+        echo "Repository: ${{ github.repository }}"
+        echo "Workflow: ${{ github.workflow }}"
+        echo "Event: ${{ github.event_name }}"
+        echo "Runner OS: ${{ runner.os }}"
+        echo "Workspace: ${{ github.workspace }}"
+        
+        echo "=== Conditional Expressions ==="
+        echo "Is production: ${{ inputs.environment == 'production' }}"
+        echo "Is staging: ${{ inputs.environment == 'staging' }}"
+        echo "Has needs context: ${{ needs.build.result == 'success' }}"
+
+    - name: Simulate deployment
+      run: |
+        echo "Simulating deployment to ${{ inputs.environment }}"
+        echo "Application: ${{ github.repository }}"
+        echo "Version: 1.0.0-${{ github.sha }}"
