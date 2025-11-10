@@ -1,0 +1,73 @@
+name: Explore Expressions and Contexts
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allows manual triggering
+
+env:
+  NODE_VERSION: '18'
+  CUSTOM_VAR: 'hello-world'
+
+jobs:
+  explore-expressions:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Show basic expressions
+      run: |
+        echo "Repository: ${{ github.repository }}"
+        echo "Event name: ${{ github.event_name }}"
+        echo "Ref: ${{ github.ref }}"
+        echo "SHA: ${{ github.sha }}"
+        echo "Workflow: ${{ github.workflow }}"
+        echo "Runner OS: ${{ runner.os }}"
+
+    - name: Show environment context
+      run: |
+        echo "Node version from env: ${{ env.NODE_VERSION }}"
+        echo "Custom variable: ${{ env.CUSTOM_VAR }}"
+
+    - name: Conditional execution example
+      if: ${{ github.event_name == 'push' }}
+      run: echo "This only runs on push events"
+
+    - name: Show job context
+      run: |
+        echo "Job status: ${{ job.status }}"
+        echo "Runner name: ${{ runner.name }}"
+
+    - name: Matrix example (if using strategy)
+      run: echo "This could be part of a matrix strategy"
+
+  context-details:
+    runs-on: ubuntu-latest
+    needs: explore-expressions
+    
+    steps:
+    - name: Dump all contexts
+      run: |
+        echo "=== GitHub Context ==="
+        echo "Actor: ${{ github.actor }}"
+        echo "Event path: ${{ github.event_path }}"
+        echo "Workspace: ${{ github.workspace }}"
+        echo "Action: ${{ github.action }}"
+        
+        echo "=== Runner Context ==="
+        echo "OS: ${{ runner.os }}"
+        echo "Temp: ${{ runner.temp }}"
+        echo "Tool cache: ${{ runner.tool_cache }}"
+
+    - name: Show secrets context (masked)
+      run: |
+        echo "Secret names are masked: ${{ secrets.GITHUB_TOKEN }}"
+
+    - name: Complex expression example
+      run: |
+        echo "Branch name: ${{ github.ref == 'refs/heads/main' && 'main' || github.ref_name }}"
+        echo "Is main branch: ${{ github.ref == 'refs/heads/main' }}"
